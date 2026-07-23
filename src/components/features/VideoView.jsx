@@ -1,11 +1,12 @@
 /**
- * VideoView — Browse your video library.
- * Matches the existing cove1 design language (Tailwind + framer-motion).
- * Dark theme, pill filter chips, hover play button, resolution + duration badges.
+ * VideoView — Browse video library with filters and interactive video player dialog.
  */
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Film, Plus, Play } from 'lucide-react';
+import { useAppStore } from '@/store/useAppStore';
+import { toast } from 'sonner';
+
 const VIDEO_DATA = [
     { id: 1, title: 'Summer Trip 2024', duration: '3:24', res: '4K', date: 'Jun 2024', size: '1.2 GB', thumb: 'https://picsum.photos/seed/vid1/400/225', tags: ['travel', 'outdoor'] },
     { id: 2, title: 'Birthday Party', duration: '12:07', res: '1080p', date: 'Mar 2024', size: '820 MB', thumb: 'https://picsum.photos/seed/vid2/400/225', tags: ['family', 'celebration'] },
@@ -20,105 +21,159 @@ const VIDEO_DATA = [
     { id: 11, title: 'Drone Footage', duration: '2:33', res: '4K', date: 'Jun 2023', size: '980 MB', thumb: 'https://picsum.photos/seed/vid11/400/225', tags: ['outdoor', 'travel'] },
     { id: 12, title: 'Concert Night', duration: '45:00', res: '1080p', date: 'May 2023', size: '6.1 GB', thumb: 'https://picsum.photos/seed/vid12/400/225', tags: ['celebration'] },
 ];
+
 const FILTERS = ['all', 'travel', 'nature', 'family', 'urban', 'outdoor', 'celebration', 'indoor'];
+
 export function VideoView() {
     const [filter, setFilter] = useState('all');
     const [hoveredId, setHoveredId] = useState(null);
+    const openMediaModal = useAppStore((s) => s.openMediaModal);
+    const importFiles = useAppStore((s) => s.importFiles);
+
     const videos = filter === 'all' ? VIDEO_DATA : VIDEO_DATA.filter((v) => v.tags.includes(filter));
-    const totalGB = (VIDEO_DATA.reduce((acc, v) => {
-        const n = parseFloat(v.size);
-        return acc + (v.size.includes('GB') ? n * 1024 : n);
-    }, 0) / 1024).toFixed(1);
-    return (<div className="h-full overflow-auto flex flex-col">
-      {/* Header */}
-      <div className="px-5 pt-5 pb-3 flex-shrink-0">
-        <div className="flex items-start justify-between mb-1">
-          <div>
-            <h1 className="text-[15px] font-semibold text-foreground tracking-tight flex items-center gap-2">
-              <Film size={16} className="text-primary"/>
-              Videos
-            </h1>
-            <p className="text-[12px] text-muted-foreground mt-0.5">
-              <span className="font-medium text-foreground">{VIDEO_DATA.length}</span> videos ·{' '}
-              <span className="font-medium text-foreground">{totalGB} GB</span>
-            </p>
-          </div>
-          <button className="flex items-center gap-1.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1.5 text-[12px] font-medium transition-colors" onClick={() => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.multiple = true;
-            input.accept = 'video/*';
-            input.click();
-        }}>
-            <Plus size={13}/>
-            Import
-          </button>
-        </div>
 
-        {/* Filter chips */}
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {FILTERS.map((f) => (<button key={f} onClick={() => setFilter(f)} className={`rounded-full px-3 py-1 text-[11px] font-medium transition-all duration-150 capitalize
+    const totalGB = (
+        VIDEO_DATA.reduce((acc, v) => {
+            const n = parseFloat(v.size);
+            return acc + (v.size.includes('GB') ? n * 1024 : n);
+        }, 0) / 1024
+    ).toFixed(1);
+
+    const handleImport = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.accept = 'video/*';
+        input.onchange = (e) => {
+            if (e.target.files?.length) {
+                const count = importFiles(e.target.files);
+                toast.success(`Imported ${count} video${count > 1 ? 's' : ''}`);
+            }
+        };
+        input.click();
+    };
+
+    return (
+        <div className="h-full overflow-auto flex flex-col">
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 flex-shrink-0">
+                <div className="flex items-start justify-between mb-1">
+                    <div>
+                        <h1 className="text-[15px] font-semibold text-foreground tracking-tight flex items-center gap-2">
+                            <Film size={16} className="text-primary" />
+                            Videos
+                        </h1>
+                        <p className="text-[12px] text-muted-foreground mt-0.5">
+                            <span className="font-medium text-foreground">{VIDEO_DATA.length}</span> videos ·{' '}
+                            <span className="font-medium text-foreground">{totalGB} GB</span>
+                        </p>
+                    </div>
+                    <button
+                        onClick={handleImport}
+                        className="flex items-center gap-1.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1.5 text-[12px] font-medium transition-colors border border-primary/20"
+                    >
+                        <Plus size={13} />
+                        Import Videos
+                    </button>
+                </div>
+
+                {/* Filter chips */}
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                    {FILTERS.map((f) => (
+                        <button
+                            key={f}
+                            onClick={() => setFilter(f)}
+                            className={`rounded-full px-3 py-1 text-[11px] font-medium transition-all duration-150 capitalize
                 ${filter === f
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-card border border-border text-secondary-foreground hover:border-primary/40 hover:text-foreground'}`}>
-              {f}
-            </button>))}
+                                    ? 'bg-primary text-primary-foreground shadow-sm'
+                                    : 'bg-card border border-border text-secondary-foreground hover:border-primary/40 hover:text-foreground'}`}
+                        >
+                            {f}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Grid */}
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={filter}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="px-5 pb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+                >
+                    {videos.map((v, i) => (
+                        <motion.div
+                            key={v.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.04, duration: 0.22 }}
+                            onClick={() => openMediaModal('video', v)}
+                            onMouseEnter={() => setHoveredId(v.id)}
+                            onMouseLeave={() => setHoveredId(null)}
+                            className="group cursor-pointer rounded-xl overflow-hidden border border-border bg-card hover:border-primary/40 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                        >
+                            {/* Thumbnail */}
+                            <div className="relative overflow-hidden" style={{ height: 150 }}>
+                                <img
+                                    src={v.thumb}
+                                    alt={v.title}
+                                    loading="lazy"
+                                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+
+                                {/* Play button overlay */}
+                                <AnimatePresence>
+                                    {hoveredId === v.id && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.8 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.8 }}
+                                            transition={{ duration: 0.15 }}
+                                            className="absolute inset-0 flex items-center justify-center"
+                                        >
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border border-white/30">
+                                                <Play size={14} fill="white" className="text-white ml-0.5" />
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
+                                {/* Badges */}
+                                <div
+                                    className={`absolute top-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide
+                    ${v.res === '4K' ? 'bg-primary text-primary-foreground' : 'bg-black/60 text-white backdrop-blur-sm'}`}
+                                >
+                                    {v.res}
+                                </div>
+                                <div className="absolute bottom-2 right-2 rounded-md bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-white">
+                                    {v.duration}
+                                </div>
+                            </div>
+
+                            {/* Info */}
+                            <div className="p-3">
+                                <p className="text-[13px] font-medium text-foreground truncate mb-1">{v.title}</p>
+                                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                                    <span>{v.date}</span>
+                                    <span className="mono">{v.size}</span>
+                                </div>
+                            </div>
+                        </motion.div>
+                    ))}
+                </motion.div>
+            </AnimatePresence>
+
+            {videos.length === 0 && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                    <Film size={28} strokeWidth={1.2} className="mb-3 text-muted-foreground/40" />
+                    <p className="text-[13px]">No videos in "{filter}"</p>
+                    <p className="text-[11px] text-muted-foreground/50 mt-1">Try a different filter</p>
+                </motion.div>
+            )}
         </div>
-      </div>
-
-      {/* Grid */}
-      <AnimatePresence mode="wait">
-        <motion.div key={filter} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="px-5 pb-5 grid grid-cols-2 lg:grid-cols-3 gap-3">
-          {videos.map((v, i) => (<motion.div key={v.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04, duration: 0.22 }} className="group rounded-xl overflow-hidden border border-border bg-card hover:border-primary/30 transition-all duration-200 hover:shadow-lg hover:shadow-black/30 hover:-translate-y-0.5" onMouseEnter={() => setHoveredId(v.id)} onMouseLeave={() => setHoveredId(null)}>
-              {/* Thumbnail */}
-              <div className="relative overflow-hidden" style={{ height: 150 }}>
-                <img src={v.thumb} alt={v.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"/>
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"/>
-
-                {/* Play button */}
-                <AnimatePresence>
-                  {hoveredId === v.id && (<motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={{ duration: 0.15 }} className="absolute inset-0 flex items-center justify-center">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border border-white/30">
-                        <Play size={14} fill="white" className="text-white ml-0.5"/>
-                      </div>
-                    </motion.div>)}
-                </AnimatePresence>
-
-                {/* Resolution badge */}
-                <div className={`absolute top-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide
-                    ${v.res === '4K' ? 'bg-primary text-primary-foreground' : 'bg-black/60 text-white backdrop-blur-sm'}`}>
-                  {v.res}
-                </div>
-
-                {/* Duration badge */}
-                <div className="absolute bottom-2 right-2 rounded-md bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-white">
-                  {v.duration}
-                </div>
-              </div>
-
-              {/* Info */}
-              <div className="p-3">
-                <p className="text-[13px] font-medium text-foreground truncate mb-1">{v.title}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground">{v.date}</span>
-                  <span className="text-[11px] text-muted-foreground/70">{v.size}</span>
-                </div>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {v.tags.map((t) => (<span key={t} className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground capitalize">
-                      {t}
-                    </span>))}
-                </div>
-              </div>
-            </motion.div>))}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Empty state */}
-      {videos.length === 0 && (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-          <Film size={28} strokeWidth={1.2} className="mb-3 text-muted-foreground/40"/>
-          <p className="text-[13px]">No videos in "{filter}"</p>
-          <p className="text-[11px] text-muted-foreground/50 mt-1">Try a different filter</p>
-        </motion.div>)}
-    </div>);
+    );
 }
